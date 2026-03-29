@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FreeMotion Auto - AI Assistant Demo</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f0f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.phone { width: 100%; max-width: 400px; background: white; border-radius: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); overflow: hidden; }
+.header { background: #1D9E75; padding: 20px 20px 16px; display: flex; align-items: center; gap: 12px; }
+.avatar { width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-weight: 600; color: white; font-size: 14px; }
+.hinfo p { color: white; font-weight: 600; font-size: 16px; }
+.hinfo span { color: rgba(255,255,255,0.8); font-size: 12px; }
+.powered { background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 20px; margin-left: auto; }
+.powered p { color: white; font-size: 10px; }
+.msgs { padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; min-height: 420px; max-height: 420px; overflow-y: auto; background: #f8f8f8; }
+.bubble { max-width: 78%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.5; }
+.agent { background: white; color: #1a1a1a; border-bottom-left-radius: 4px; align-self: flex-start; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.user { background: #1D9E75; color: white; border-bottom-right-radius: 4px; align-self: flex-end; }
+.ts { font-size: 11px; color: #999; text-align: center; }
+.typing { display: flex; align-items: center; gap: 5px; padding: 10px 14px; background: white; border-radius: 18px; border-bottom-left-radius: 4px; align-self: flex-start; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #999; animation: bounce 1.2s infinite; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+.inputrow { display: flex; gap: 8px; padding: 12px; background: white; border-top: 1px solid #f0f0f0; }
+.inputrow input { flex: 1; border: 1.5px solid #e0e0e0; border-radius: 24px; padding: 10px 16px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+.inputrow input:focus { border-color: #1D9E75; }
+.inputrow button { width: 42px; height: 42px; border-radius: 50%; background: #1D9E75; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; }
+.inputrow button:disabled { opacity: 0.4; }
+.inputrow button svg { width: 18px; height: 18px; fill: white; }
+.footer { padding: 10px; text-align: center; background: white; }
+.footer p { font-size: 10px; color: #999; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="header">
+    <div class="avatar">FM</div>
+    <div class="hinfo">
+      <p>FreeMotion Auto</p>
+      <span>AI Assistant · Online</span>
+    </div>
+    <div class="powered"><p>Powered by Kwiker</p></div>
+  </div>
+  <div class="msgs" id="msgs"></div>
+  <div class="inputrow">
+    <input id="input" type="text" placeholder="Text FreeMotion Auto..." />
+    <button id="btn">
+      <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+    </button>
+  </div>
+  <div class="footer"><p>This is a demo powered by Kwiker Services AI</p></div>
+</div>
+
+<script>
+const SYSTEM = `You are Alex, a friendly and professional AI assistant for FreeMotion Auto — a car rental and used car sales business. You communicate only via text message. Keep responses short, warm, and conversational — like a real person texting, not a formal email. Use 1-3 short sentences max per message. Never use bullet points or numbered lists. Never repeat your introduction if you have already greeted the customer.
+
+Your job is to help potential customers with renting a car or buying a used car. Naturally guide the conversation to collect the required information below, one or two questions at a time.
+
+FOR RENTALS collect: pickup and return dates, vehicle type, valid driver's license, insurance preference (personal insurance or Basic/Premium Vehicle Protection Plan), valid card on file, age 18+, full name and callback number.
+
+FOR USED CAR PURCHASES collect: vehicle type they want, budget range, cash or financing, trade-in yes/no, valid driver's license, valid payment or financing pre-approval, full name and callback number.
+
+Never ask more than 2 questions at a time. Once you have everything tell them a FreeMotion Auto team member will follow up shortly. Be warm and friendly, never pushy.`;
+
+const msgs = document.getElementById('msgs');
+const input = document.getElementById('input');
+const btn = document.getElementById('btn');
+let history = [];
+let busy = false;
+
+function addMsg(text, role) {
+  const el = document.createElement('div');
+  el.className = 'bubble ' + (role === 'user' ? 'user' : 'agent');
+  el.textContent = text;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+  const el = document.createElement('div');
+  el.className = 'typing';
+  el.id = 'typing';
+  el.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing');
+  if (el) el.remove();
+}
+
+async function send() {
+  const text = input.value.trim();
+  if (!text || busy) return;
+  busy = true;
+  btn.disabled = true;
+  input.value = '';
+  addMsg(text, 'user');
+  showTyping();
+  history.push({ role: 'user', content: text });
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYSTEM, messages: history })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || "Give me just a second!";
+    history.push({ role: 'assistant', content: reply });
+    removeTyping();
+    addMsg(reply, 'agent');
+  } catch(e) {
+    removeTyping();
+    addMsg("Sorry, something went wrong. Try again!", 'agent');
+  }
+  busy = false;
+  btn.disabled = false;
+  input.focus();
+}
+
+btn.addEventListener('click', send);
+input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+setTimeout(() => {
+  showTyping();
+  setTimeout(() => {
+    removeTyping();
+    addMsg("Hey! Thanks for reaching out to FreeMotion Auto! I'm Alex. Are you looking to rent a vehicle or buy one today?", 'agent');
+  }, 1200);
+}, 500);
+</script>
+</body>
+</html>
