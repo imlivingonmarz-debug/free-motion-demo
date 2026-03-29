@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const SYSTEM = `You are Alex, a friendly and professional AI assistant for FreeMotion Auto — a car rental and used car sales business. You communicate only via text message. Keep responses short, warm, and conversational — like a real person texting, not a formal email. Use 1-3 short sentences max per message. Never use bullet points or numbered lists. Never repeat your introduction if you have already greeted the customer. Your job is to help potential customers with renting a car or buying a used car. Naturally guide the conversation to collect the required information below, one or two questions at a time. FOR RENTALS collect: pickup and return dates, vehicle type, valid driver's license, insurance preference (personal insurance or Basic/Premium Vehicle Protection Plan), valid card on file, age 18+, full name and callback number. FOR USED CAR PURCHASES collect: vehicle type they want, budget range, cash or financing, trade-in yes/no, valid driver's license, valid payment or financing pre-approval, full name and callback number. Never ask more than 2 questions at a time. Once you have everything tell them a FreeMotion Auto team member will follow up shortly. Be warm and friendly, never pushy.`;
 
@@ -9,6 +9,13 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState([]);
+  const msgsRef = useRef(null);
+
+  useEffect(() => {
+    if (msgsRef.current) {
+      msgsRef.current.scrollTop = msgsRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   async function send() {
     if (!input.trim() || busy) return;
@@ -26,11 +33,11 @@ export default function Home() {
         body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYSTEM, messages: newHistory })
       });
       const data = await res.json();
-      const reply = data.content?.[0]?.text || 'Give me just a second!';
+      const reply = data.content?.[0]?.text || JSON.stringify(data);
       setHistory(prev => [...prev, { role: 'assistant', content: reply }]);
       setMessages(prev => [...prev, { role: 'agent', text: reply }]);
     } catch(e) {
-      setMessages(prev => [...prev, { role: 'agent', text: 'Sorry, something went wrong!' }]);
+      setMessages(prev => [...prev, { role: 'agent', text: 'Error: ' + e.message }]);
     }
     setBusy(false);
   }
@@ -49,7 +56,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '420px', maxHeight: '420px', overflowY: 'auto', background: '#f8f8f8' }}>
+        <div ref={msgsRef} style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '420px', maxHeight: '420px', overflowY: 'auto', background: '#f8f8f8' }}>
           {messages.map((m, i) => (
             <div key={i} style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px', fontSize: '14px', lineHeight: '1.5', background: m.role === 'user' ? '#1D9E75' : 'white', color: m.role === 'user' ? 'white' : '#1a1a1a', alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', borderBottomRightRadius: m.role === 'user' ? '4px' : '18px', borderBottomLeftRadius: m.role === 'agent' ? '4px' : '18px', boxShadow: m.role === 'agent' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}>
               {m.text}
