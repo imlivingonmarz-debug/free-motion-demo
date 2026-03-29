@@ -102,36 +102,3 @@ async function send() {
   addMsg(text, 'user');
   showTyping();
   history.push({ role: 'user', content: text });
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYSTEM, messages: history })
-    });
-    const data = await res.json();
-    const reply = data.content?.[0]?.text || "Give me just a second!";
-    history.push({ role: 'assistant', content: reply });
-    removeTyping();
-    addMsg(reply, 'agent');
-  } catch(e) {
-    removeTyping();
-    addMsg("Sorry, something went wrong. Try again!", 'agent');
-  }
-  busy = false;
-  btn.disabled = false;
-  input.focus();
-}
-
-btn.addEventListener('click', send);
-input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-
-setTimeout(() => {
-  showTyping();
-  setTimeout(() => {
-    removeTyping();
-    addMsg("Hey! Thanks for reaching out to FreeMotion Auto! I'm Alex. Are you looking to rent a vehicle or buy one today?", 'agent');
-  }, 1200);
-}, 500);
-</script>
-</body>
-</html>
