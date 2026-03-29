@@ -27,7 +27,7 @@ export default function Home() {
     setHistory(newHistory);
 
     try {
-      const res = await fetch('/api/chat', {
+        const res = await fetch('https://freemotion-chat.kwickerbotss.workers.dev', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYSTEM, messages: newHistory })
